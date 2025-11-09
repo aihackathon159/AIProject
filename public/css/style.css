@@ -18,102 +18,67 @@ body {
     /* Nền trời xanh nhạt cho thân thiện */
     background: linear-gradient(to bottom, #87CEEB, #B0E0E6);
 }
-/* public/style.css */
 
-/* Sửa lại #input-bar để có khoảng cách giữa các nút */
-#input-bar {
-    display: flex;
-    align-items: center;
-    padding: 15px;
-    border-top: 1px solid #e0e0e0;
-    background-color: #f9f9f9;
-    border-radius: 0 0 20px 20px;
-    gap: 10px; /* <-- THÊM DÒNG NÀY */
-}
-
-/* Xóa margin-left của #send-button (vì đã dùng gap) */
-#send-button {
-    /* ... các style khác giữ nguyên ... */
-    margin-left: 0; /* <-- THAY ĐỔI DÒNG NÀY (hoặc xóa) */
-}
-
-/* --- NÚT MICRO MỚI --- */
-#mic-button {
-    background-color: #f1f0f0; /* Màu xám nhạt */
-    color: #333;
-    border: none;
-    
-    /* Style chung (giống nút Gửi) */
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    padding: 0;
-    font-size: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-    flex-shrink: 0;
-}
-
-#mic-button:hover {
-    background-color: #e0e0e0; /* Màu đậm hơn khi rê chuột */
-}
-
-#mic-button:active {
-    transform: scale(0.92);
-}
-
-/* --- TRẠNG THÁI KHI BỊ VÔ HIỆU HÓA --- */
-#send-button:disabled,
-#mic-button:disabled {
-    background-color: #e9e9e9;
-    color: #999;
-    cursor: not-allowed;
-    transform: scale(1);
-}
-
-/* --- TRẠNG THÁI "ĐANG NGHE" RẤT QUAN TRỌNG --- */
-#mic-button.is-listening {
-    background-color: #ff4136; /* Màu đỏ */
-    color: white;
-    /* Thêm hiệu ứng "nhịp tim" */
-    animation: pulse 1.5s infinite;
-}
-
-/* Hiệu ứng "nhịp tim" */
-@keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(255, 65, 54, 0.7);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(255, 65, 54, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(255, 65, 54, 0);
-    }
-}
 /* --- KHUNG CHAT TỔNG THỂ --- */
 #chat-container {
     display: flex;
     flex-direction: column;
 
-    /* THAY ĐỔI TẠI ĐÂY: Chuyển sang "nổi" BÊN PHẢI */
+    /* Nổi BÊN PHẢI */
     position: fixed;
     bottom: 20px;
-    right: 20px; /* <-- Đây là "khoảng cách một tí" */
-    /* Xóa "left: 0;" và "margin: 0 auto;" */
+    right: 20px;
     
     width: 90%;
-    max-width: 600px; /* Giữ nguyên max-width để chat không quá rộng */
-    height: 1000vh; 
-    max-height: 980px;
+    max-width: 600px; 
+    height: 70vh; 
+    max-height: 500px;
 
     background: rgba(255, 255, 255, 0.95);
     border-radius: 20px; 
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); 
     border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* --- HEADER MỚI (Từ style.css cũ của bạn) --- */
+#chat-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #e0e0e0;
+    background-color: #f9f9f9;
+    border-radius: 20px 20px 0 0; /* Bo tròn 2 góc trên */
+    flex-shrink: 0; /* Không cho header co lại */
+}
+
+/* Nút thoát */
+#exit-button {
+    background: #e0e0e0;
+    color: #333;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+#exit-button:hover {
+    background: #cccccc;
+}
+
+/* Tiêu đề cuộc trò chuyện */
+#chat-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* --- LỊCH SỬ HỘI THOẠI --- */
@@ -132,7 +97,6 @@ body {
     max-width: 75%;
     line-height: 1.5;
     font-size: 16px;
-    /* Hiệu ứng tin nhắn xuất hiện */
     animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -141,7 +105,6 @@ body {
     align-self: flex-end; /* Nằm bên phải */
     background-color: #0084ff; /* Màu xanh dương hiện đại */
     color: white;
-    /* Bo góc kiểu "đuôi" tin nhắn */
     border-radius: 18px 18px 5px 18px;
 }
 
@@ -150,7 +113,6 @@ body {
     align-self: flex-start; /* Nằm bên trái */
     background-color: #f1f0f0; /* Màu xám nhạt */
     color: #333;
-    /* Bo góc kiểu "đuôi" tin nhắn ngược lại */
     border-radius: 18px 18px 18px 5px;
 }
 
@@ -161,61 +123,96 @@ body {
     padding: 15px;
     border-top: 1px solid #e0e0e0;
     background-color: #f9f9f9;
-    /* Bo tròn 2 góc dưới của khung chat */
     border-radius: 0 0 20px 20px; 
+    gap: 10px;
+    flex-shrink: 0; /* Không cho thanh nhập liệu co lại */
 }
 
 #prompt-input {
     flex-grow: 1;
     border: none;
     background-color: #f1f1f1;
-    border-radius: 20px; /* Bo tròn thành hình viên thuốc */
+    border-radius: 20px; 
     padding: 12px 20px;
     font-size: 16px;
-    outline: none; /* Bỏ viền xanh khi nhấn vào */
+    outline: none; 
     transition: background-color 0.2s;
 }
 
 #prompt-input:focus {
-    background-color: #e9e9e9; /* Đổi màu khi gõ */
+    background-color: #e9e9e9;
 }
 
 /* --- NÚT GỬI --- */
 #send-button {
-    background-color: #0084ff; /* Đồng bộ màu với tin nhắn */
+    background-color: #0084ff;
     color: white;
     border: none;
-    
-    /* Biến nút bấm thành hình tròn */
     width: 45px;
     height: 45px;
     border-radius: 50%; 
-    
-    margin-left: 10px;
-    padding: 0; /* Bỏ padding cũ */
-    font-size: 20px; /* Tăng kích cỡ icon */
-    
+    padding: 0;
+    font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
-    flex-shrink: 0; /* Không cho nút bị bóp nhỏ */
+    flex-shrink: 0;
 }
 
-/* Thêm biểu tượng máy bay giấy (dùng CSS) */
 #send-button::before {
     content: '➤';
-    transform: translateX(1px); /* Căn chỉnh icon vào giữa */
+    transform: translateX(1px);
 }
 
 #send-button:hover {
-    background-color: #006edc; /* Đổi màu khi rê chuột */
+    background-color: #006edc;
 }
 
 #send-button:active {
-    transform: scale(0.92); /* Hiệu ứng nhấn nút */
+    transform: scale(0.92);
+}
+
+/* --- NÚT MICRO MỚI --- */
+#mic-button {
+    background-color: #f1f0f0;
+    color: #333;
+    border: none;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    padding: 0;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    flex-shrink: 0;
+}
+
+#mic-button:hover {
+    background-color: #e0e0e0;
+}
+
+/* --- TRẠNG THÁI KHI BỊ VÔ HIỆU HÓA --- */
+#send-button:disabled,
+#mic-button:disabled,
+#exit-button:disabled {
+    background-color: #e9e9e9;
+    color: #999;
+    cursor: not-allowed;
+    transform: scale(1);
+    animation: none;
+    box-shadow: none;
+}
+
+/* --- TRẠNG THÁI "ĐANG NGHE" RẤT QUAN TRỌNG --- */
+#mic-button.is-listening {
+    background-color: #ff4136; /* Màu đỏ */
+    color: white;
+    animation: pulse 1.5s infinite;
 }
 
 /* --- Hiệu ứng tin nhắn xuất hiện --- */
@@ -230,18 +227,32 @@ body {
     }
 }
 
+/* Hiệu ứng "nhịp tim" */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(255, 65, 54, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(255, 65, 54, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(255, 65, 54, 0);
+    }
+}
+
 /* --- Tối ưu cho di động --- */
 @media (max-width: 600px) {
     #chat-container {
-        width: 100%; /* Chiếm 100% chiều rộng */
-        height: 100%; /* Chiếm 100% chiều cao */
+        width: 100%;
+        height: 100%;
         bottom: 0;
-        
-        /* THAY ĐỔI TẠI ĐÂY: Căn lại ra toàn màn hình */
-        left: 0;
         right: 0;
-        
-        border-radius: 0; /* Bỏ bo góc trên di động */
+        left: 0;
+        border-radius: 0;
         max-height: none;
+    }
+    
+    #chat-header {
+        border-radius: 0;
     }
 }
