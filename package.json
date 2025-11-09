@@ -1,7 +1,7 @@
 {
-  "name": "project-speech-buddy",
+  "name": "AI Hackathon Project",
   "version": "1.0.0",
-  "description": "Trang web 3D AI cho trẻ chậm nói",
+  "description": "Trang web AI support cho trẻ chậm nói",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

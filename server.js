@@ -46,7 +46,6 @@ app.get('/api/chat', async (req, res) => {
     res.flushHeaders(); // Gửi headers ngay lập tức
 
     try {
-        // Chỉ dẫn đặc biệt cho AI (Giữ nguyên theo ý bạn)
         const chatPrompt = `
             Bạn là Bố mày, một người bạn AI đồng hành. 
             Nhiệm vụ của bạn là trò chuyện với người dùng một cách thân thiện, tự nhiên và lôi cuốn nhưng không quá dài trong các câu xã giao, tập trung vào hỏi và đánh giá sự tiến bộ qua lời nói của trẻ.
@@ -100,7 +99,6 @@ app.post('/api/tts', async (req, res) => {
                 headers: {
                     'api-key': process.env.FPT_API_KEY, 
                     'Content-Type': 'text/plain',
-                    
                     'voice': 'ban_mai' 
                 }
             }
@@ -133,11 +131,9 @@ app.listen(PORT, () => {
     ];
 
     let coloredText = '';
-    // Lặp qua từng ký tự và gán màu
+    
     for (let i = 0; i < text.length; i++) {
         coloredText += colors[i % colors.length] + text[i];
     }
-    
-    // In ra dòng chữ cầu vồng và reset màu
     console.log(coloredText + '\x1b[0m');
 });
