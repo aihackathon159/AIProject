@@ -50,7 +50,7 @@ app.get('/api/chat', async (req, res) => {
         // 3. Lặp qua từng "chunk" (mẩu) dữ liệu và gửi về client
         for await (const chunk of result.stream) {
             const chunkText = chunk.text();
-            console.log("💬Gửi chunk:", chunkText);
+            console.log("💬 Gửi chunk:", chunkText);
             
             // Dữ liệu phải có định dạng "data: {nội dung}\n\n"
             res.write(`data: ${JSON.stringify({ chunk: chunkText })}\n\n`);
