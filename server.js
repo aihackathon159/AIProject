@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config(); // Tải file .env
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios = require('axios');
-const path = require('path'); // <-- THÊM THƯ VIỆN PATH
+const path = require('path');
 
 const app = express();
 const PORT = 3000;
@@ -98,9 +98,9 @@ app.post('/api/tts', async (req, res) => {
             text, // FPT chỉ cần text thô trong body
             {
                 headers: {
-                    'api-key': process.env.FPT_API_KEY, // Key bí mật của bạn
+                    'api-key': process.env.FPT_API_KEY, 
                     'Content-Type': 'text/plain',
-                    // Chọn giọng đọc. "ban_mai" là giọng nữ miền Bắc hay nhất
+                    
                     'voice': 'ban_mai' 
                 }
             }
