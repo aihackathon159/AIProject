@@ -2,15 +2,13 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config(); // Tải file .env
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const axios = require('axios'); // <-- Đã chuyển lên đầu
+const axios = require('axios'); 
 
 const app = express();
 const PORT = 3000;
 
 // --- Cấu hình Gemini ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 // --------------------------
 
@@ -35,7 +33,7 @@ app.get('/api/chat', async (req, res) => {
     res.flushHeaders(); // Gửi headers ngay lập tức
 
     try {
-        // Chỉ dẫn đặc biệt cho AI (Giữ nguyên theo ý bạn)
+        // Chỉ dẫn đặc biệt cho AI 
         const chatPrompt = `
             Bạn là Bố mày, một người bạn AI đồng hành. 
             Nhiệm vụ của bạn là trò chuyện với người dùng một cách thân thiện, tự nhiên và lôi cuốn nhưng không quá dài trong các câu xã giao, tập trung vào hỏi và đánh giá sự tiến bộ qua lời nói của trẻ.
@@ -84,18 +82,17 @@ app.post('/api/tts', async (req, res) => {
         // Gọi API của FPT.AI
         const response = await axios.post(
             'https://api.fpt.ai/hmi/tts/v5',
-            text, // FPT chỉ cần text thô trong body
+            text, 
             {
                 headers: {
-                    'api-key': process.env.FPT_API_KEY, // Key bí mật của bạn
+                    'api-key': process.env.FPT_API_KEY, // Key bí mật của Vinh
                     'Content-Type': 'text/plain',
-                    // Chọn giọng đọc. "ban_mai" là giọng nữ miền Bắc hay nhất
                     'voice': 'ban_mai' 
                 }
             }
         );
         
-        // FPT.AI trả về một link MP3 (nằm trong data.async)
+        // FPT.AI trả về một link MP3 
         const mp3Url = response.data.async;
         
         // Gửi link MP3 này về cho trình duyệt

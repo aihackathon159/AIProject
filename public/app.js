@@ -4,8 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Biến toàn cục cho Chat ---
     let eventSource = null; // Giữ kết nối stream
     let isStreaming = false; // Cờ kiểm tra AI có đang trả lời hay không
-
-    // --- SỬA LỖI: Thêm khai báo recognition ---
     let recognition = null; // Biến giữ trình ghi âm
 
     // --- Lấy các phần tử DOM ---
@@ -29,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 5;
 
-        const renderer = new THREE.WebGLRenderer({ alpha: true }); // 'alpha: true' để nền trong suốt
+        const renderer = new THREE.WebGLRenderer({ alpha: true }); // 'alpha: true': để nền trong suốt
         renderer.setSize(window.innerWidth, window.innerHeight);
         canvasContainer.appendChild(renderer.domElement);
 
@@ -65,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
         micButton.addEventListener('click', toggleSpeechRecognition);
     }
 
-    /**
+    /*
      * Xử lý khi người dùng gửi form (nhấn Enter hoặc click nút)
      */
     function handleFormSubmit(event) {
@@ -79,26 +77,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!prompt) {
             return; // Không gửi nếu ô trống
         }
-
-        // Gửi tin nhắn
-        sendMessage(prompt);
-        
-        // Xóa ô nhập liệu ngay lập tức
-        promptInput.value = '';
+        sendMessage(prompt);// Gửi tin nhắn
+        promptInput.value = '';// Xóa ô nhập liệu ngay lập tức
     }
-
     /**
      * Gửi prompt đến backend và lắng nghe stream
      */
     function sendMessage(prompt) {
-        // 1. Khóa giao diện
-        setStreamingState(true);
-
-        // 2. Hiển thị tin nhắn người dùng
-        displayMessage(prompt, 'user');
-
-        // 3. Tạo bong bóng chat "đang nghĩ" cho AI (Đồng bộ persona)
-        const aiMessageElement = displayMessage("Bố mày đang nghĩ...", 'ai');
+        
+        setStreamingState(true);// 1. Khóa giao diện
+        displayMessage(prompt, 'user'); // 2. Hiển thị tin nhắn người dùng
+        const aiMessageElement = displayMessage("Bố mày đang nghĩ...", 'ai'); // 3. Tạo bong bóng chat "đang nghĩ" 
         let fullMessage = ""; // Biến để nối các chunk
 
         // 4. Mã hóa prompt và tạo kết nối EventSource
@@ -190,11 +179,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         recognition = new SpeechRecognition();
         recognition.lang = 'vi-VN';
-        
-        // --- THAY ĐỔI QUAN TRỌNG ---
         recognition.continuous = true;   // <-- BẬT chế độ nghe liên tục
-        recognition.interimResults = false; // Chỉ trả kết quả cuối (sau khi ngắt nghỉ)
-        // -------------------------
+        recognition.interimResults = false; // Chỉ trả kết quả cuối 
+        
 
         // Khi trình ghi âm nhận diện được giọng nói
         recognition.onresult = (event) => {
@@ -235,9 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!recognition) return; // Chưa khởi tạo
 
         if (micButton.classList.contains('is-listening')) {
-            // Nếu đang nghe -> bắt nó dừng
+            // Nếu đang nghe sẽ bắt dừng
             recognition.stop();
-            // (Hàm 'onend' sẽ tự động dọn dẹp)
             
         } else {
             // Nếu đang không nghe -> bắt đầu nghe
@@ -275,11 +261,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-     * Đọc to văn bản dùng FPT.AI (Cách 2 - Qua Server)
+     * Đọc to văn bản dùng FPT.AI 
      */
     async function speak(text) {
-        // 1. Dừng mọi âm thanh đang phát (nếu có)
-        window.speechSynthesis.cancel(); // Tắt giọng trình duyệt (phòng hờ)
+        // 1. Dừng mọi âm thanh đang phát 
+        window.speechSynthesis.cancel(); // Tắt giọng trình duyệt 
 
         try {
             // 2. Gửi văn bản cần đọc lên server của CHÍNH MÌNH
@@ -304,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error("Lỗi khi phát giọng nói FPT.AI:", error);
-            // Fallback (Dự phòng): Nếu FPT lỗi, dùng giọng trình duyệt
+            // Fallback: Nếu FPT lỗi, dùng giọng trình duyệt
             speakFallback(text);
         }
     }
@@ -320,7 +306,5 @@ document.addEventListener('DOMContentLoaded', () => {
         utterance.pitch = 1.1;
         window.speechSynthesis.speak(utterance);
     }
-
-    // --- SỬA LỖI: ĐÃ XÓA HÀM SPEAK() BỊ TRÙNG Ở ĐÂY ---
 
 });
