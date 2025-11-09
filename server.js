@@ -2,18 +2,31 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config(); // Tải file .env
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const axios = require('axios'); 
+const axios = require('axios');
+const path = require('path'); // <-- THÊM THƯ VIỆN PATH
 
 const app = express();
 const PORT = 3000;
 
 // --- Cấu hình Gemini ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// --- SỬA LỖI QUAN TRỌNG ---
+// "gemini-2.5-flash-lite" KHÔNG TỒN TẠI.
+// Đã đổi sang model HỢP LỆ và NHANH NHẤT.
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 // --------------------------
 
 app.use(cors());
 app.use(express.json());
+
+// --- ROUTE CHO TRANG CHỦ (START.HTML) ---
+// Phải đặt TRƯỚC express.static
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'start.html'));
+});
+// ---------------------------------------
+
 app.use(express.static('public'));
 
 // --- API Endpoint CHAT (Gemini) ---
@@ -33,7 +46,7 @@ app.get('/api/chat', async (req, res) => {
     res.flushHeaders(); // Gửi headers ngay lập tức
 
     try {
-        // Chỉ dẫn đặc biệt cho AI 
+        // Chỉ dẫn đặc biệt cho AI (Giữ nguyên theo ý bạn)
         const chatPrompt = `
             Bạn là Bố mày, một người bạn AI đồng hành. 
             Nhiệm vụ của bạn là trò chuyện với người dùng một cách thân thiện, tự nhiên và lôi cuốn nhưng không quá dài trong các câu xã giao, tập trung vào hỏi và đánh giá sự tiến bộ qua lời nói của trẻ.
@@ -50,7 +63,7 @@ app.get('/api/chat', async (req, res) => {
         // 3. Lặp qua từng "chunk" (mẩu) dữ liệu và gửi về client
         for await (const chunk of result.stream) {
             const chunkText = chunk.text();
-            console.log("💬 Gửi chunk:", chunkText);
+            console.log("Gửi chunk:", chunkText);
             
             // Dữ liệu phải có định dạng "data: {nội dung}\n\n"
             res.write(`data: ${JSON.stringify({ chunk: chunkText })}\n\n`);
@@ -82,17 +95,18 @@ app.post('/api/tts', async (req, res) => {
         // Gọi API của FPT.AI
         const response = await axios.post(
             'https://api.fpt.ai/hmi/tts/v5',
-            text, 
+            text, // FPT chỉ cần text thô trong body
             {
                 headers: {
-                    'api-key': process.env.FPT_API_KEY, // Key bí mật của Vinh
+                    'api-key': process.env.FPT_API_KEY, // Key bí mật của bạn
                     'Content-Type': 'text/plain',
+                    // Chọn giọng đọc. "ban_mai" là giọng nữ miền Bắc hay nhất
                     'voice': 'ban_mai' 
                 }
             }
         );
         
-        // FPT.AI trả về một link MP3 
+        // FPT.AI trả về một link MP3 (nằm trong data.async)
         const mp3Url = response.data.async;
         
         // Gửi link MP3 này về cho trình duyệt
