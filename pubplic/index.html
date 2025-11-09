@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Lùa Gà</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <main id="chat-container">
+        
+        <div id="chat-log">
+            </div>
+
+        <form id="input-bar">
+            <button id="mic-button" type="button" aria-label="Ghi âm giọng nói">
+                🎤
+            </button>
+            
+            <input type="text" id="prompt-input" placeholder="Nói gì đó với Bố mày đi...">
+            <button id="send-button" type="submit" aria-label="Gửi tin nhắn">
+                </button>
+        </form>
+
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="app.js"></script>
+    <audio id="tts-player" style="display: none;"></audio>
+</body>
+</html>
