@@ -120,5 +120,24 @@ app.post('/api/tts', async (req, res) => {
 
 
 app.listen(PORT, () => {
-    console.log(`Máy chủ đang chạy tại http://localhost:${PORT}`);
+    // --- THAY ĐỔI TẠI ĐÂY ---
+    // Tạo hiệu ứng cầu vồng
+    const text = `Máy chủ đang chạy tại ➤  http://localhost:${PORT}`;
+    const colors = [
+        '\x1b[31m', // Đỏ
+        '\x1b[33m', // Vàng
+        '\x1b[32m', // Xanh lá
+        '\x1b[36m', // Xanh lơ
+        '\x1b[34m', // Xanh dương
+        '\x1b[35m', // Tím
+    ];
+
+    let coloredText = '';
+    // Lặp qua từng ký tự và gán màu
+    for (let i = 0; i < text.length; i++) {
+        coloredText += colors[i % colors.length] + text[i];
+    }
+    
+    // In ra dòng chữ cầu vồng và reset màu
+    console.log(coloredText + '\x1b[0m');
 });
