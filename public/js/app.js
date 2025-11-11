@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let recognition = null; // Biến giữ trình ghi âm
     let sessionId = null;   // <-- BIẾN MỚI: Giữ ID của kênh chat
 
+    // --- BIẾN MỚI CHO AI VOICE ---
+    let isVoiceEnabled = true; // Bật/tắt giọng nói AI
+    let aiVoice = null; // Đối tượng Text-to-Speech
+
     // --- Lấy các phần tử DOM ---
     const canvasContainer = document.getElementById('canvas-container');
     const chatLog = document.getElementById('chat-log');
