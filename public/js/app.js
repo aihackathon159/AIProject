@@ -16,16 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
+    // --- CẤU HÌNH APPS SCRIPT URL ---
+    // DÁN URL WEB APP CỦA BẠN VÀO ĐÂY (đã lấy từ Google Script)
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxuhzFKPx07AfqkLIV74KCbd5Axf6RDopsATbjkuam1R6lE_w7gUSZlgBRRzxyuO_1r/exec"; 
+
     // --- Biến toàn cục cho Chat ---
     let eventSource = null;
     let isStreaming = false;
     let recognition = null;
     let sessionId = null;
-    
-    // === CODE MỚI: Biến toàn cục để giữ Topic và Vocab ===
     let sessionTopic = null;
     let sessionVocab = null;
-    // === KẾT THÚC CODE MỚI ===
 
     let isVoiceEnabled = true;
     let aiVoice = null;
@@ -40,6 +41,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const ttsPlayer = document.getElementById('tts-player');
     const chatTitle = document.getElementById('chat-title');
     const exitButton = document.getElementById('exit-button');
+    
+    // Đảm bảo ttsPlayer không tự động phát
+    if(ttsPlayer) {
+        ttsPlayer.autoplay = false;
+    }
+
 
     // --- KHỞI CHẠY CÁC MÔ-ĐUN ---
     initThreeJS();
@@ -50,6 +57,89 @@ document.addEventListener('DOMContentLoaded', () => {
     exitButton.addEventListener('click', () => {
         window.location.href = 'dashboard.html';
     });
+
+    // ===================================================================
+    // PHẦN 4: CÁC HÀM TIỆN ÍCH (Hiển thị & Giọng nói)
+    // ===================================================================
+
+    /**
+     * Đọc to văn bản dùng Apps Script (Gemini TTS)
+     * Hàm này ĐÃ ĐƯỢC TỐI ƯU để gọi URL Apps Script của bạn
+     */
+    async function speak(text) {
+        if (!text || !APPS_SCRIPT_URL) {
+            console.error("Thiếu URL hoặc văn bản.");
+            speakFallback(text);
+            return;
+        }
+
+        try {
+            console.log("Đang gọi Apps Script để tạo giọng nói...");
+            // Bắt đầu gọi API
+            const response = await fetch(APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    // Cần dùng Content-Type này cho Google Apps Script doPost()
+                    'Content-Type': 'text/plain', 
+                },
+                body: JSON.stringify({ text: text })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                console.error("Lỗi từ Apps Script:", data.error);
+                speakFallback(text);
+                return;
+            }
+
+            const audioUrl = data.url;
+            if (audioUrl) {
+                console.log("Đã nhận URL Audio: ", audioUrl);
+                
+                // Dừng mọi âm thanh cũ của trình duyệt
+                window.speechSynthesis.cancel();
+                
+                // Phát file MP3 từ Google Drive
+                ttsPlayer.src = audioUrl;
+                ttsPlayer.load();
+                ttsPlayer.play();
+            } else {
+                console.warn("Không có URL Audio. Dùng Fallback.");
+                speakFallback(text);
+            }
+
+        } catch (e) {
+            console.error("Lỗi kết nối hoặc xử lý TTS:", e);
+            speakFallback(text);
+        }
+    }
+
+    /**
+     * Hàm dự phòng (sử dụng TTS của trình duyệt)
+     */
+    function speakFallback(text) {
+        console.warn("Đang dùng giọng đọc dự phòng của trình duyệt.");
+        window.speechSynthesis.cancel(); 
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'vi-VN';
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+    }
+    
+    /**
+     * Hiển thị một tin nhắn mới trong hộp thoại
+     * Trả về element của tin nhắn đó
+     */
+    function displayMessage(message, sender) {
+        const messageElement = document.createElement('div');
+        messageElement.textContent = message;
+        messageElement.className = (sender === 'user') ? 'user-message' : 'ai-message';
+        chatLog.appendChild(messageElement);
+        chatLog.scrollTop = chatLog.scrollHeight;
+        return messageElement; // Trả về để có thể cập nhật (cho AI)
+    }
 
     // ===================================================================
     // PHẦN 0: QUẢN LÝ KÊNH CHAT (LOGIC CSDL)
@@ -90,12 +180,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const sessionData = sessionDoc.data();
             chatTitle.textContent = sessionData.title || "Cuộc trò chuyện";
 
-            // === CODE MỚI: Lưu Topic và Vocab vào biến toàn cục ===
             sessionTopic = sessionData.topic;
             sessionVocab = sessionData.vocabulary;
             console.log("Đã tải Topic:", sessionTopic);
             console.log("Đã tải Vocab:", sessionVocab);
-            // === KẾT THÚC CODE MỚI ===
 
         } catch (error) {
             console.error("Lỗi tải session data:", error);
@@ -112,12 +200,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // 3. Tải tin nhắn trong subcollection "messages"
         try {
             const messagesSnapshot = await db.collection("sessions").doc(id)
-                                              .collection("messages")
-                                              .orderBy("createdAt", "asc")
-                                              .get();
+                                             .collection("messages")
+                                             .orderBy("createdAt", "asc")
+                                             .get();
 
             if (messagesSnapshot.empty) {
-                // === LOGIC CHAT MỚI ===
                 console.log("Phát hiện chat mới. Đang tạo prompt khởi động...");
                 
                 if (sessionTopic && sessionVocab) {
@@ -126,14 +213,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     Hãy cố gắng sử dụng những từ vựng sau: "${sessionVocab}".
                     Bắt đầu bằng lời chào và giới thiệu chủ đề ngay bây giờ.`;
                     
-                    // Gửi prompt này, đánh dấu là "system"
                     sendQueryToAI(initialPrompt, true); 
                 } else {
                     displayMessage("Chào bạn! Bố mày đây. Bạn cần gì?", 'ai');
                 }
                 
             } else {
-                // === CHAT CŨ -> Tải lịch sử ===
                 messagesSnapshot.forEach(doc => {
                     const msg = doc.data();
                     displayMessage(msg.text, msg.sender);
@@ -168,7 +253,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // PHẦN 1: 3D (THREE.JS) - (Giữ nguyên)
     // ===================================================================
     function initThreeJS() {
-        // ... (Giữ nguyên code 3D của bạn) ...
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 5;
@@ -202,9 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleFormSubmit(event) {
         event.preventDefault(); 
-        if (ttsPlayer && ttsPlayer.paused) {
-            ttsPlayer.load();
-        }
+        // Logic phát lại audio (chỉnh sửa: chỉ nên chạy khi user gửi tin)
+        // ttsPlayer.load() và ttsPlayer.play() sẽ được gọi trong hàm speak()
 
         const prompt = promptInput.value.trim();
         if (!prompt) {
@@ -231,23 +314,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     /**
-     * === HÀM QUAN TRỌNG NHẤT (ĐÃ SỬA) ===
-     * Hàm này chịu trách nhiệm TẠO PROMPT và gọi API AI
-     * @param {string} userMessage - Tin nhắn của người dùng (hoặc prompt hệ thống)
-     * @param {boolean} [isSystemMessage=false] - Đánh dấu nếu đây là prompt khởi tạo
+     * === HÀM GỌI AI QUAN TRỌNG NHẤT ===
      */
     function sendQueryToAI(userMessage, isSystemMessage = false) {
-        const aiMessageElement = displayMessage("Bố mày đang nghĩ...", 'ai');
+        // Tùy chỉnh tin nhắn chờ của bạn
+        const aiMessageElement = displayMessage("🤖 Bibo đang nghĩ...", 'ai');
         let fullMessage = "";
         
         let finalPrompt;
 
         if (isSystemMessage) {
-            // Nếu là tin nhắn hệ thống (khởi tạo), gửi đi y nguyên
             finalPrompt = userMessage;
         } else {
-            // Nếu là tin nhắn của người dùng, BỌC nó bằng khuôn mẫu
-            // Lấy khuôn mẫu từ server.js và dán vào đây
+            // Đảm bảo khuôn mẫu được bọc đúng cách
             finalPrompt = `
                 Bạn là một trợ lý giọng nói thân thiện, dịu dàng và nói chuyện rõ ràng bằng giọng nữ tiếng Việt, được thiết kế để giúp đỡ trẻ em Việt Nam từ 5-12 tuổi bị chậm nói.
                 Nhiệm vụ của bạn là bắt đầu một buổi nói chuyện thật tự nhiên và vui vẻ.
@@ -258,15 +337,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 4. Sau khi bé trả lời, hãy hỏi về một sở thích đơn giản (ví dụ: 'Con thích chơi gì nhất?' hoặc 'Con thích con vật nào nhất?').
                 5. Dựa vào câu trả lời của bé, hãy dẫn dắt một cách khéo léo vào chủ đề hôm nay là '${sessionTopic || 'tự do'}' với các từ vựng: ${sessionVocab || 'bất kỳ'}.
 
-                Ví dụ: Nếu bé nói thích 'con chó', và chủ đề là 'Động vật', bạn có thể nói 'Ồ, bạn robot cũng thích chó lắm! Ngoài chó ra, trong sở thú còn có nhiều bạn động vật khác nữa đó. Con có biết không?'.
-
-                Hãy nhớ, cuộc trò chuyện phải thật tự nhiên, không giống một bài kiểm tra. Giữ câu nói ngắn gọn và dễ hiểu. Câu trả lời của bạn phải hoàn toàn bằng tiếng Việt.`;
+                Hãy nhớ, cuộc trò chuyện phải thật tự nhiên, không giống một bài kiểm tra. Giữ câu nói ngắn gọn và dễ hiểu. Câu trả lời của bạn phải hoàn toàn bằng tiếng Việt.
+                ---
+                Tin nhắn người dùng: ${userMessage}
+                `;
         }
 
         console.log("Gửi full prompt đến server:", finalPrompt.substring(0, 100) + "...");
 
         const encodedPrompt = encodeURIComponent(finalPrompt);
-        eventSource = new EventSource(`/api/chat?prompt=${encodedPrompt}`);
+        // EventSource gọi đến server Node.js (cần đảm bảo server.js đang chạy)
+        eventSource = new EventSource(`/api/chat?prompt=${encodedPrompt}&session=${sessionId}`); // Thêm sessionId vào URL
 
         eventSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -281,15 +362,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.done) {
                 closeStream();
                 if (fullMessage) {
-                    // Tạm thời tắt TTS để test, bạn có thể mở lại
-                    // speak(fullMessage); 
+                    // *** KÍCH HOẠT HÀM TTS MỚI TẠI ĐÂY ***
+                    speak(fullMessage); 
                     saveMessageToDB(fullMessage, 'ai'); // Lưu tin nhắn AI
                 }
                 return;
             }
 
             if (data.chunk) {
-                if (aiMessageElement.textContent === "Bố mày đang nghĩ...") {
+                if (aiMessageElement.textContent === "🤖 Bibo đang nghĩ...") {
                     aiMessageElement.textContent = "";
                 }
                 fullMessage += data.chunk;
@@ -326,7 +407,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===================================================================
     
     function initSpeechRecognition() {
-        // ... (Giữ nguyên code Ghi âm của bạn) ...
         micButton.addEventListener('click', toggleSpeechRecognition); 
         window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!window.SpeechRecognition) {
@@ -358,16 +438,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleSpeechRecognition() {
-        // ... (Giữ nguyên code Ghi âm của bạn) ...
         if (!recognition) return; 
         if (micButton.classList.contains('is-listening')) {
             recognition.stop();
+            if (promptInput.value.trim().length > 0) {
+                // Tự động gửi tin nhắn sau khi dừng ghi âm
+                sendMessage(promptInput.value.trim());
+                promptInput.value = '';
+            }
         } else {
             try {
                 recognition.start();
                 micButton.classList.add('is-listening'); 
                 promptInput.value = ""; 
-                promptInput.placeholder = "Bố đang nghe... (nhấn để tắt)";
+                promptInput.placeholder = "Bibo đang nghe... (nhấn để tắt)";
             } catch (error) {
                 console.error("Lỗi khi bắt đầu ghi âm:", error);
                 micButton.classList.remove('is-listening');
@@ -375,39 +459,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ===================================================================
-    // PHẦN 4: TIỆN ÍCH (Hiển thị & Giọng nói) - (Giữ nguyên)
-    // ===================================================================
-
-    function displayMessage(message, sender) {
-        // ... (Giữ nguyên code) ...
-        const messageElement = document.createElement('div');
-        messageElement.textContent = message;
-        messageElement.className = (sender === 'user') ? 'user-message' : 'ai-message';
-        chatLog.appendChild(messageElement);
-        chatLog.scrollTop = chatLog.scrollHeight;
-        return messageElement; 
-    }
-
-    async function speak(text) {
-        // ... (Giữ nguyên code) ...
-        // TẠM THỜI DÙNG FALLBACK CỦA TRÌNH DUYỆT
-        console.warn("Dùng browser TTS (fallback - giọng Việt cơ bản)");
-        window.speechSynthesis.cancel(); 
-        const utterance = new SpeechSynthesisUtance(text);
-        utterance.lang = 'vi-VN';
-        utterance.rate = 0.9;  
-        utterance.pitch = 1.0;  
-        utterance.volume = 1.0; 
-        window.speechSynthesis.speak(utterance);
-    }
-
-    function speakFallback(text) {
-        // ... (Giữ nguyên code) ...
-        console.warn("Đang dùng giọng đọc dự phòng của trình duyệt.");
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'vi-VN';
-        utterance.rate = 0.9;
-        window.speechSynthesis.speak(utterance);
-    }
 });
