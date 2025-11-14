@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isStreaming = false;
     let recognition = null; // Biến giữ trình ghi âm
     let sessionId = null;   // <-- BIẾN MỚI: Giữ ID của kênh chat
-
+    //hehhe//
     // --- Lấy các phần tử DOM ---
     const canvasContainer = document.getElementById('canvas-container');
     const chatLog = document.getElementById('chat-log');
@@ -23,8 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSession();             // <-- Kச்செய tra/Tạo session CSDL
 
     // ===================================================================
-    // PHẦN 0: QUẢN LÝ KÊNH CHAT (LOGIC CSDL MỚI)
-    // (Đây là các hàm giả lập, bạn sẽ thay bằng Firebase sau)
+    // PHẦN 0: QUẢN LÝ KÊNH CHAT (LOGIC CSDL)
     // ===================================================================
 
     function initSession() {
@@ -37,11 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Đang tải session cũ:", sessionId);
             loadChatHistory(sessionId);
         } else {
-            // ID không có -> Tạo session mới
-            // (Sau này Firebase sẽ tạo ID, giờ chúng ta tự tạo)
-            sessionId = "session_" + Date.now();
-            console.log("Tạo session mới:", sessionId);
-            // Không cần làm gì thêm, vì đây là chat mới
+            // ID không có -> Trang này là trang mới (hoặc lỗi)
+            // Logic đúng: Trang index.html phải luôn có ID
+            // Nếu không có ID, ta nên quay về dashboard
+            console.warn("Không tìm thấy session ID, quay về dashboard.");
+            // Tạm thời tạo 1 session giả để test
+             sessionId = "session_test_" + Date.now();
+             console.log("Tạo session TEST:", sessionId);
+            // window.location.href = 'dashboard.html'; // Đây là code đúng khi deploy
         }
     }
 
@@ -206,53 +208,76 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===================================================================
     // PHẦN 3: LOGIC GHI ÂM (Speech-to-Text)
     // ===================================================================
+    
     function initSpeechRecognition() {
         micButton.addEventListener('click', toggleSpeechRecognition); // Kích hoạt nút mic
-        
+
+        // Kiểm tra trình duyệt có hỗ trợ không
         window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
         if (!window.SpeechRecognition) {
+            console.error("Trình duyệt của bạn không hỗ trợ Speech Recognition.");
             micButton.disabled = true;
-            micButton.textContent = '🚫';
+            micButton.textContent = '🚫'; // Báo lỗi
             return;
         }
 
         recognition = new SpeechRecognition();
         recognition.lang = 'vi-VN';
-        recognition.continuous = true;
-        recognition.interimResults = false;
+        
+        recognition.continuous = true;   // <-- BẬT chế độ nghe liên tục
+        recognition.interimResults = false; // Chỉ trả kết quả cuối (sau khi ngắt nghỉ)
 
+        // Khi trình ghi âm nhận diện được giọng nói
         recognition.onresult = (event) => {
+            // Lấy kết quả MỚI NHẤT
             const transcript = event.results[event.results.length - 1][0].transcript;
+            
+            // Nối kết quả mới vào ô chat (thêm dấu cách)
             promptInput.value += transcript.trim() + ' ';
         };
 
+        // Xử lý lỗi
         recognition.onerror = (event) => {
             console.error("Lỗi Speech Recognition:", event.error);
-            if (event.error === 'not-allowed') {
+            if (event.error === 'no-speech') {
+                // Lỗi này sẽ xảy ra liên tục khi bật continuous, nên ta bỏ qua
+            } else if (event.error === 'audio-capture') {
+                alert("Không tìm thấy micro. Bạn kiểm tra lại nhé!");
+            } else if (event.error === 'not-allowed') {
                 alert("Bạn cần cho phép trang web sử dụng micro nhé!");
             }
+            
+            // Khi có lỗi nghiêm trọng, tắt mic
             micButton.classList.remove('is-listening');
-            promptInput.placeholder = "Nói gì đó với Bố mày đi...";
+            promptInput.placeholder = "Nói gì đó với Bibo...";
         };
         
+        // Khi ngừng ghi âm (CHỈ khi ta gọi .stop() hoặc có lỗi)
         recognition.onend = () => {
-            micButton.classList.remove('is-listening');
-            promptInput.placeholder = "Nói gì đó với Bố mày đi...";
+            micButton.classList.remove('is-listening'); // Tắt hiệu ứng đỏ
+            promptInput.placeholder = "Nói gì đó với Bibo...";
         };
     }
 
+    /**
+     * Bật/Tắt trình ghi âm khi nhấn nút mic
+     */
     function toggleSpeechRecognition() {
-        if (!recognition) return;
+        if (!recognition) return; // Chưa khởi tạo
 
         if (micButton.classList.contains('is-listening')) {
+            // Nếu đang nghe -> bắt nó dừng
             recognition.stop();
         } else {
+            // Nếu đang không nghe -> bắt đầu nghe
             try {
                 recognition.start();
-                micButton.classList.add('is-listening');
-                promptInput.value = "";
+                micButton.classList.add('is-listening'); // Bật hiệu ứng đỏ
+                promptInput.value = ""; // Xóa ô chat
                 promptInput.placeholder = "Bố đang nghe... (nhấn để tắt)";
             } catch (error) {
+                // Xử lý nếu gọi start() quá nhanh
                 console.error("Lỗi khi bắt đầu ghi âm:", error);
                 micButton.classList.remove('is-listening');
             }
@@ -260,50 +285,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===================================================================
-    // PHẦN 4: CÁC HÀM TIỆN ÍCH (Hiển thị & Giọng nói FPT)
+    // PHẦN 4: CÁC HÀM TIỆN ÍCH (Hiển thị & Giọng nói)
     // ===================================================================
 
+    /**
+     * Hiển thị một tin nhắn mới trong hộp thoại
+     * Trả về element của tin nhắn đó
+     */
     function displayMessage(message, sender) {
         const messageElement = document.createElement('div');
         messageElement.textContent = message;
         messageElement.className = (sender === 'user') ? 'user-message' : 'ai-message';
         chatLog.appendChild(messageElement);
         chatLog.scrollTop = chatLog.scrollHeight;
-        return messageElement;
+        return messageElement; // Trả về để có thể cập nhật (cho AI)
     }
 
+    /**
+     * Đọc to văn bản dùng FPT.AI (Cách 2 - Qua Server)
+     */
     async function speak(text) {
-        // Dùng trình phát audio đã "đánh thức"
-        if (!ttsPlayer) return;
+        console.warn("Dùng browser TTS (fallback - giọng Việt cơ bản)");
+        window.speechSynthesis.cancel(); // Dừng nếu đang nói
         
-        window.speechSynthesis.cancel();
-        ttsPlayer.pause();
-        ttsPlayer.src = "";
-
-        try {
-            const response = await fetch('/api/tts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: text }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Server không thể tạo file âm thanh');
-            }
-
-            const data = await response.json();
-            ttsPlayer.src = data.url;
-            await ttsPlayer.play();
-
-        } catch (error) {
-            console.error("Lỗi khi phát giọng nói FPT.AI:", error);
-            speakFallback(text); // Dùng giọng dự phòng
-        }
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'vi-VN';
+        utterance.rate = 0.9;  // Chậm nhẹ
+        utterance.pitch = 1.0;  // Giọng chuẩn
+        utterance.volume = 1.0; // To
+        window.speechSynthesis.speak(utterance);
     }
 
+    /**
+     * Hàm dự phòng nha Nguyên ơi
+     */
     function speakFallback(text) {
         console.warn("Đang dùng giọng đọc dự phòng của trình duyệt.");
-        const utterance = new SpeechSynthesisUtance(text);
+        const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'vi-VN';
         utterance.rate = 0.9;
         window.speechSynthesis.speak(utterance);
