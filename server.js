@@ -11,16 +11,13 @@ const path = require('path');
 const app = express();
 const PORT = 3000;
 
-// --- Cấu hình Gemini (cho chat) ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// --- Cấu hình Google Cloud TTS (cho giọng nói) ---
 const ttsClient = new TextToSpeechClient();
 
 app.use(cors());
 app.use(express.json());
 
-// --- ROUTE CHO TRANG CHỦ (START.HTML) ---
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'start.html'));
 });
@@ -29,37 +26,27 @@ app.use(express.static('public'));
 app.use('/tts', express.static(path.join(__dirname, 'public', 'tts')));
 
 // ============================================================
-// --- API Endpoint CHAT (Gemini) - ĐÃ ĐƯỢC ĐƠN GIẢN HÓA ---
+// --- API Endpoint CHAT (Gemini) ---
 // ============================================================
 app.get('/api/chat', async (req, res) => {
-    // 'prompt' này bây giờ là CÂU LỆNH ĐẦY ĐỦ do app.js tạo ra
     const { prompt } = req.query;
 
     if (!prompt) {
         return res.status(400).send('Thiếu prompt');
     }
-
-    // Log một phần của prompt để kiểm tra
     console.log(`Đã nhận full prompt (stream): ${prompt.substring(0, 150)}...`);
-
-    // 1. Thiết lập Header cho Server-Sent Events (SSE)
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
     try {
-        // SỬA: DÙNG MODEL FLASH (miễn phí, quota 60 req/phút)
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-        // === THAY ĐỔI CHÍNH ===
-        // Xóa 'chatPrompt' template
-        // Gửi 'prompt' nhận được trực tiếp cho Gemini
         const result = await model.generateContentStream(prompt);
 
         for await (const chunk of result.stream) {
             const chunkText = chunk.text();
-            // console.log("Gửi chunk:", chunkText); // Bật nếu cần debug
             res.write(`data: ${JSON.stringify({ chunk: chunkText })}\n\n`);
         }
 
@@ -74,7 +61,7 @@ app.get('/api/chat', async (req, res) => {
 });
 
 // ============================================================
-// --- API Endpoint GIỌNG NÓI (FPT.AI) - (Giữ nguyên) ---
+// --- API Endpoint GIỌNG NÓI (FPT.AI) 
 // ============================================================
 app.post('/api/tts', async (req, res) => {
     let { text } = req.body;
@@ -106,15 +93,12 @@ app.post('/api/tts', async (req, res) => {
         res.status(500).json({ error: 'Lỗi tạo giọng nói' });
     }
 });
-// === CÁC HÀM TIỆN ÍCH (Giữ nguyên) ===
 function cleanTextForTTS(text) {
     return text
         .replace(/[\u{1F600}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
-
-// (Các hàm phonetic và SSML khác giữ nguyên nếu bạn cần dùng sau)
 
 app.listen(PORT, () => {
     // Hiệu ứng cầu vồng
