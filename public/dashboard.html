@@ -35,12 +35,34 @@
             </div>
         </main>
     </div>
-
+    <div id="new-chat-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>Tạo cuộc trò chuyện mới</h2>
+            <form id="new-chat-form">
+                <div class="form-group">
+                    <label for="chat-title-input">Tên cuộc trò chuyện:</label>
+                    <input type="text" id="chat-title-input" placeholder="Ví dụ: Luyện tập về gia đình" required>
+                </div>
+                <div class="form-group">
+                    <label for="chat-topic-input">Chủ đề (Topic):</label>
+                    <input type="text" id="chat-topic-input" placeholder="Ví dụ: Kể về các thành viên trong gia đình" required>
+                </div>
+                <div class="form-group">
+                    <label for="chat-vocab-input">Từ vựng (Vocabulary):</label>
+                    <input type="text" id="chat-vocab-input" placeholder="Ví dụ: bố, mẹ, anh, chị, em..." required>
+                </div>
+                <div class="form-buttons">
+                    <button type="button" id="cancel-chat-btn" class="secondary-btn">Hủy</button>
+                    <button type="submit" id="create-chat-btn" class="primary-btn">Tạo</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <!-- 
       Thêm các script của Firebase SDK vào đây
       trước khi gọi dashboard.js
       gay
     -->
-    <script src="dashboard.js"></script>
+    <script src="js/dashboard.js"></script>
 </body>
 </html>

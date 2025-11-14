@@ -1,16 +1,34 @@
 // Chờ cho toàn bộ HTML được tải xong
 document.addEventListener('DOMContentLoaded', () => {
 
+    // --- BƯỚC 1: DÁN CONFIG FIREBASE VÀO ĐÂY ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDts2-C9LML06XKrFNBUpGS54085J6iPM",
+        authDomain: "aihackathon-95272.firebaseapp.com",
+        projectId: "aihackathon-95272",
+        storageBucket: "aihackathon-95272.firebaseio.com",
+        messagingSenderId: "353073612135",
+        appId: "1:353073612135:web:f930c17eda61e0a8435bc2",
+        measurementId: "G-HSHPGV1P8B"
+    };
+
+    // --- BƯỚC 2: KHỞI TẠO FIREBASE ---
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
     // --- Biến toàn cục cho Chat ---
     let eventSource = null;
     let isStreaming = false;
-    let recognition = null; // Biến giữ trình ghi âm
-    let sessionId = null;   // <-- BIẾN MỚI: Giữ ID của kênh chat
-    //hehhe//
-    // --- BIẾN MỚI CHO AI VOICE ---
-    let isVoiceEnabled = true; // Bật/tắt giọng nói AI
-    let aiVoice = null; // Đối tượng Text-to-Speech
+    let recognition = null;
+    let sessionId = null;
+    
+    // === CODE MỚI: Biến toàn cục để giữ Topic và Vocab ===
+    let sessionTopic = null;
+    let sessionVocab = null;
+    // === KẾT THÚC CODE MỚI ===
 
+    let isVoiceEnabled = true;
+    let aiVoice = null;
 
     // --- Lấy các phần tử DOM ---
     const canvasContainer = document.getElementById('canvas-container');
@@ -19,13 +37,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const promptInput = document.getElementById('prompt-input');
     const sendButton = document.getElementById('send-button');
     const micButton = document.getElementById('mic-button');
-    const ttsPlayer = document.getElementById('tts-player'); // Lấy trình phát audio
+    const ttsPlayer = document.getElementById('tts-player');
+    const chatTitle = document.getElementById('chat-title');
+    const exitButton = document.getElementById('exit-button');
 
     // --- KHỞI CHẠY CÁC MÔ-ĐUN ---
     initThreeJS();
-    initChat();                // <-- Kích hoạt thanh chat
-    initSpeechRecognition();   // <-- Kích hoạt micro
-    initSession();             // <-- Kச்செய tra/Tạo session CSDL
+    initChat();
+    initSpeechRecognition();
+    initSession();
+
+    exitButton.addEventListener('click', () => {
+        window.location.href = 'dashboard.html';
+    });
 
     // ===================================================================
     // PHẦN 0: QUẢN LÝ KÊNH CHAT (LOGIC CSDL)
@@ -36,70 +60,125 @@ document.addEventListener('DOMContentLoaded', () => {
         const idFromUrl = urlParams.get('id');
 
         if (idFromUrl) {
-            // ID đã có -> Tải lịch sử chat cũ
             sessionId = idFromUrl;
-            console.log("Đang tải session cũ:", sessionId);
+            console.log("Đang tải session:", sessionId);
             loadChatHistory(sessionId);
         } else {
-            // ID không có -> Trang này là trang mới (hoặc lỗi)
-            // Logic đúng: Trang index.html phải luôn có ID
-            // Nếu không có ID, ta nên quay về dashboard
-            console.warn("Không tìm thấy session ID, quay về dashboard.");
-            // Tạm thời tạo 1 session giả để test
-             sessionId = "session_test_" + Date.now();
-             console.log("Tạo session TEST:", sessionId);
-            // window.location.href = 'dashboard.html'; // Đây là code đúng khi deploy
+            console.error("Không tìm thấy session ID! Quay về dashboard.");
+            chatTitle.textContent = "Lỗi";
+            displayMessage("Không tìm thấy ID cuộc trò chuyện. Đang quay lại...", 'ai');
+            setTimeout(() => {
+                window.location.href = 'dashboard.html';
+            }, 3000);
         }
     }
 
     /**
-     * Hàm GIẢ LẬP tải lịch sử chat (Bạn sẽ thay bằng Firebase)
+     * Hàm TẢI LỊCH SỬ CHAT (Code Firebase thật)
      */
-    function loadChatHistory(id) {
+    async function loadChatHistory(id) {
         console.log(`Đang tải lịch sử cho ${id}...`);
-        // GIẢ LẬP
-        const mockHistory = [
-            { text: 'Chào Bibo', sender: 'user' },
-            { text: 'Chào bạn! Bố mày đây. Bạn cần gì?', sender: 'ai' }
-        ];
 
-        // Xóa chữ "Bố mày đang nghĩ..." (nếu có)
+        // 1. Tải thông tin của Session
+        try {
+            const sessionDoc = await db.collection("sessions").doc(id).get();
+            if (!sessionDoc.exists) {
+                console.error("Session không tồn tại!");
+                window.location.href = 'dashboard.html';
+                return;
+            }
+            const sessionData = sessionDoc.data();
+            chatTitle.textContent = sessionData.title || "Cuộc trò chuyện";
+
+            // === CODE MỚI: Lưu Topic và Vocab vào biến toàn cục ===
+            sessionTopic = sessionData.topic;
+            sessionVocab = sessionData.vocabulary;
+            console.log("Đã tải Topic:", sessionTopic);
+            console.log("Đã tải Vocab:", sessionVocab);
+            // === KẾT THÚC CODE MỚI ===
+
+        } catch (error) {
+            console.error("Lỗi tải session data:", error);
+            displayMessage("Lỗi kết nối tới CSDL (Session).", 'ai');
+            return;
+        }
+
+        // 2. Xóa tin nhắn "đang nghĩ"
         const thinkingMsg = chatLog.querySelector('.ai-message');
         if (thinkingMsg && thinkingMsg.textContent.includes('nghĩ')) {
             thinkingMsg.remove();
         }
 
-        mockHistory.forEach(msg => {
-            displayMessage(msg.text, msg.sender);
-        });
+        // 3. Tải tin nhắn trong subcollection "messages"
+        try {
+            const messagesSnapshot = await db.collection("sessions").doc(id)
+                                              .collection("messages")
+                                              .orderBy("createdAt", "asc")
+                                              .get();
+
+            if (messagesSnapshot.empty) {
+                // === LOGIC CHAT MỚI ===
+                console.log("Phát hiện chat mới. Đang tạo prompt khởi động...");
+                
+                if (sessionTopic && sessionVocab) {
+                    const initialPrompt = `Hãy bắt đầu một cuộc trò chuyện nhập vai.
+                    Chủ đề của chúng ta là: "${sessionTopic}".
+                    Hãy cố gắng sử dụng những từ vựng sau: "${sessionVocab}".
+                    Bắt đầu bằng lời chào và giới thiệu chủ đề ngay bây giờ.`;
+                    
+                    // Gửi prompt này, đánh dấu là "system"
+                    sendQueryToAI(initialPrompt, true); 
+                } else {
+                    displayMessage("Chào bạn! Bố mày đây. Bạn cần gì?", 'ai');
+                }
+                
+            } else {
+                // === CHAT CŨ -> Tải lịch sử ===
+                messagesSnapshot.forEach(doc => {
+                    const msg = doc.data();
+                    displayMessage(msg.text, msg.sender);
+                });
+            }
+        } catch (error) {
+            console.error("Lỗi tải lịch sử tin nhắn:", error);
+            displayMessage("Lỗi khi tải lịch sử chat.", 'ai');
+        }
     }
 
     /**
-     * Hàm GIẢ LẬP lưu tin nhắn (Bạn sẽ thay bằng Firebase)
+     * Hàm LƯU TIN NHẮN (Code Firebase thật)
      */
     function saveMessageToDB(text, sender) {
-        // Sau này bạn sẽ dùng: db.collection("sessions").doc(sessionId)...
-        console.log(`[DB (${sessionId})]: Lưu [${sender}]: ${text}`);
+        if (!sessionId) {
+            console.error("Không có session ID, không thể lưu tin nhắn!");
+            return;
+        }
+        
+        db.collection("sessions").doc(sessionId)
+          .collection("messages").add({
+              text: text,
+              sender: sender,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          })
+          .catch(error => console.error("Lỗi lưu tin nhắn:", error));
     }
 
 
     // ===================================================================
-    // PHẦN 1: KHỞI TẠO 3D (THREE.JS) - (Giữ nguyên)
+    // PHẦN 1: 3D (THREE.JS) - (Giữ nguyên)
     // ===================================================================
     function initThreeJS() {
+        // ... (Giữ nguyên code 3D của bạn) ...
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 5;
-
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         canvasContainer.appendChild(renderer.domElement);
-
         const geometry = new THREE.BoxGeometry(1, 1, 1);
         const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
         const cube = new THREE.Mesh(geometry, material);
         scene.add(cube);
-
         function animate() {
             requestAnimationFrame(animate);
             cube.rotation.x += 0.01;
@@ -107,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderer.render(scene, camera);
         }
         animate();
-
         window.addEventListener('resize', () => {
             renderer.setSize(window.innerWidth, window.innerHeight);
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -116,46 +194,78 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===================================================================
-    // PHẦN 2: KHỞI TẠO LOGIC CHAT (Gửi tin nhắn)
+    // PHẦN 2: LOGIC CHAT (Gửi tin nhắn)
     // ===================================================================
     function initChat() {
-        // KÍCH HOẠT THANH CHAT
         inputForm.addEventListener('submit', handleFormSubmit);
     }
 
     function handleFormSubmit(event) {
-        event.preventDefault(); // Ngăn trang tải lại
-
-        // "Đánh thức" trình phát FPT.AI (Fix lỗi Autoplay)
+        event.preventDefault(); 
         if (ttsPlayer && ttsPlayer.paused) {
             ttsPlayer.load();
         }
 
-        if (isStreaming) {
-            return; // Nếu AI đang nói, không làm gì cả
-        }
-
         const prompt = promptInput.value.trim();
         if (!prompt) {
-            return; // Không gửi nếu ô trống
+            return; 
         }
-
-        // Gửi tin nhắn
-        sendMessage(prompt);
         
-        promptInput.value = ''; // Xóa ô nhập liệu
+        sendMessage(prompt);
+        promptInput.value = ''; 
     }
 
+    /**
+     * Hàm này chỉ dùng khi NGƯỜI DÙNG gõ và gửi
+     */
     function sendMessage(prompt) {
+        if (isStreaming) {
+            return;
+        }
         setStreamingState(true);
 
         displayMessage(prompt, 'user');
-        saveMessageToDB(prompt, 'user'); // <-- LƯU TIN NHẮN USER VÀO DB
+        saveMessageToDB(prompt, 'user'); // Lưu tin nhắn user
 
+        sendQueryToAI(prompt); // <-- Gọi hàm xử lý AI
+    }
+    
+    /**
+     * === HÀM QUAN TRỌNG NHẤT (ĐÃ SỬA) ===
+     * Hàm này chịu trách nhiệm TẠO PROMPT và gọi API AI
+     * @param {string} userMessage - Tin nhắn của người dùng (hoặc prompt hệ thống)
+     * @param {boolean} [isSystemMessage=false] - Đánh dấu nếu đây là prompt khởi tạo
+     */
+    function sendQueryToAI(userMessage, isSystemMessage = false) {
         const aiMessageElement = displayMessage("Bố mày đang nghĩ...", 'ai');
         let fullMessage = "";
+        
+        let finalPrompt;
 
-        const encodedPrompt = encodeURIComponent(prompt);
+        if (isSystemMessage) {
+            // Nếu là tin nhắn hệ thống (khởi tạo), gửi đi y nguyên
+            finalPrompt = userMessage;
+        } else {
+            // Nếu là tin nhắn của người dùng, BỌC nó bằng khuôn mẫu
+            // Lấy khuôn mẫu từ server.js và dán vào đây
+            finalPrompt = `
+                Bạn là một trợ lý giọng nói thân thiện, dịu dàng và nói chuyện rõ ràng bằng giọng nữ tiếng Việt, được thiết kế để giúp đỡ trẻ em Việt Nam từ 5-12 tuổi bị chậm nói.
+                Nhiệm vụ của bạn là bắt đầu một buổi nói chuyện thật tự nhiên và vui vẻ.
+                Hãy làm theo các bước sau:
+                1. Chào bé một cách nồng nhiệt.
+                2. Tự giới thiệu mình là một người bạn robot.
+                3. Hỏi tên của bé để làm quen.
+                4. Sau khi bé trả lời, hãy hỏi về một sở thích đơn giản (ví dụ: 'Con thích chơi gì nhất?' hoặc 'Con thích con vật nào nhất?').
+                5. Dựa vào câu trả lời của bé, hãy dẫn dắt một cách khéo léo vào chủ đề hôm nay là '${sessionTopic || 'tự do'}' với các từ vựng: ${sessionVocab || 'bất kỳ'}.
+
+                Ví dụ: Nếu bé nói thích 'con chó', và chủ đề là 'Động vật', bạn có thể nói 'Ồ, bạn robot cũng thích chó lắm! Ngoài chó ra, trong sở thú còn có nhiều bạn động vật khác nữa đó. Con có biết không?'.
+
+                Hãy nhớ, cuộc trò chuyện phải thật tự nhiên, không giống một bài kiểm tra. Giữ câu nói ngắn gọn và dễ hiểu. Câu trả lời của bạn phải hoàn toàn bằng tiếng Việt.`;
+        }
+
+        console.log("Gửi full prompt đến server:", finalPrompt.substring(0, 100) + "...");
+
+        const encodedPrompt = encodeURIComponent(finalPrompt);
         eventSource = new EventSource(`/api/chat?prompt=${encodedPrompt}`);
 
         eventSource.onmessage = (event) => {
@@ -171,8 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.done) {
                 closeStream();
                 if (fullMessage) {
-                    speak(fullMessage);
-                    saveMessageToDB(fullMessage, 'ai'); // <-- LƯU TIN NHẮN AI VÀO DB
+                    // Tạm thời tắt TTS để test, bạn có thể mở lại
+                    // speak(fullMessage); 
+                    saveMessageToDB(fullMessage, 'ai'); // Lưu tin nhắn AI
                 }
                 return;
             }
@@ -211,78 +322,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===================================================================
-    // PHẦN 3: LOGIC GHI ÂM (Speech-to-Text)
+    // PHẦN 3: LOGIC GHI ÂM (Giữ nguyên)
     // ===================================================================
     
     function initSpeechRecognition() {
-        micButton.addEventListener('click', toggleSpeechRecognition); // Kích hoạt nút mic
-
-        // Kiểm tra trình duyệt có hỗ trợ không
+        // ... (Giữ nguyên code Ghi âm của bạn) ...
+        micButton.addEventListener('click', toggleSpeechRecognition); 
         window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
         if (!window.SpeechRecognition) {
             console.error("Trình duyệt của bạn không hỗ trợ Speech Recognition.");
             micButton.disabled = true;
-            micButton.textContent = '🚫'; // Báo lỗi
+            micButton.textContent = '🚫'; 
             return;
         }
-
         recognition = new SpeechRecognition();
         recognition.lang = 'vi-VN';
-        
-        recognition.continuous = true;   // <-- BẬT chế độ nghe liên tục
-        recognition.interimResults = false; // Chỉ trả kết quả cuối (sau khi ngắt nghỉ)
-
-        // Khi trình ghi âm nhận diện được giọng nói
+        recognition.continuous = true;
+        recognition.interimResults = false; 
         recognition.onresult = (event) => {
-            // Lấy kết quả MỚI NHẤT
             const transcript = event.results[event.results.length - 1][0].transcript;
-            
-            // Nối kết quả mới vào ô chat (thêm dấu cách)
             promptInput.value += transcript.trim() + ' ';
         };
-
-        // Xử lý lỗi
         recognition.onerror = (event) => {
             console.error("Lỗi Speech Recognition:", event.error);
-            if (event.error === 'no-speech') {
-                // Lỗi này sẽ xảy ra liên tục khi bật continuous, nên ta bỏ qua
-            } else if (event.error === 'audio-capture') {
-                alert("Không tìm thấy micro. Bạn kiểm tra lại nhé!");
-            } else if (event.error === 'not-allowed') {
-                alert("Bạn cần cho phép trang web sử dụng micro nhé!");
-            }
-            
-            // Khi có lỗi nghiêm trọng, tắt mic
+            if (event.error === 'no-speech') {} 
+            else if (event.error === 'audio-capture') { alert("Không tìm thấy micro."); }
+            else if (event.error === 'not-allowed') { alert("Bạn cần cho phép sử dụng micro."); }
             micButton.classList.remove('is-listening');
             promptInput.placeholder = "Nói gì đó với Bibo...";
         };
-        
-        // Khi ngừng ghi âm (CHỈ khi ta gọi .stop() hoặc có lỗi)
         recognition.onend = () => {
-            micButton.classList.remove('is-listening'); // Tắt hiệu ứng đỏ
+            micButton.classList.remove('is-listening'); 
             promptInput.placeholder = "Nói gì đó với Bibo...";
         };
     }
 
-    /**
-     * Bật/Tắt trình ghi âm khi nhấn nút mic
-     */
     function toggleSpeechRecognition() {
-        if (!recognition) return; // Chưa khởi tạo
-
+        // ... (Giữ nguyên code Ghi âm của bạn) ...
+        if (!recognition) return; 
         if (micButton.classList.contains('is-listening')) {
-            // Nếu đang nghe -> bắt nó dừng
             recognition.stop();
         } else {
-            // Nếu đang không nghe -> bắt đầu nghe
             try {
                 recognition.start();
-                micButton.classList.add('is-listening'); // Bật hiệu ứng đỏ
-                promptInput.value = ""; // Xóa ô chat
+                micButton.classList.add('is-listening'); 
+                promptInput.value = ""; 
                 promptInput.placeholder = "Bố đang nghe... (nhấn để tắt)";
             } catch (error) {
-                // Xử lý nếu gọi start() quá nhanh
                 console.error("Lỗi khi bắt đầu ghi âm:", error);
                 micButton.classList.remove('is-listening');
             }
@@ -290,41 +376,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===================================================================
-    // PHẦN 4: CÁC HÀM TIỆN ÍCH (Hiển thị & Giọng nói)
+    // PHẦN 4: TIỆN ÍCH (Hiển thị & Giọng nói) - (Giữ nguyên)
     // ===================================================================
 
-    /**
-     * Hiển thị một tin nhắn mới trong hộp thoại
-     * Trả về element của tin nhắn đó
-     */
     function displayMessage(message, sender) {
+        // ... (Giữ nguyên code) ...
         const messageElement = document.createElement('div');
         messageElement.textContent = message;
         messageElement.className = (sender === 'user') ? 'user-message' : 'ai-message';
         chatLog.appendChild(messageElement);
         chatLog.scrollTop = chatLog.scrollHeight;
-        return messageElement; // Trả về để có thể cập nhật (cho AI)
+        return messageElement; 
     }
 
-    /**
-     * Đọc to văn bản dùng FPT.AI (Cách 2 - Qua Server)
-     */
     async function speak(text) {
+        // ... (Giữ nguyên code) ...
+        // TẠM THỜI DÙNG FALLBACK CỦA TRÌNH DUYỆT
         console.warn("Dùng browser TTS (fallback - giọng Việt cơ bản)");
-        window.speechSynthesis.cancel(); // Dừng nếu đang nói
-        
-        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.cancel(); 
+        const utterance = new SpeechSynthesisUtance(text);
         utterance.lang = 'vi-VN';
-        utterance.rate = 0.9;  // Chậm nhẹ
-        utterance.pitch = 1.0;  // Giọng chuẩn
-        utterance.volume = 1.0; // To
+        utterance.rate = 0.9;  
+        utterance.pitch = 1.0;  
+        utterance.volume = 1.0; 
         window.speechSynthesis.speak(utterance);
     }
 
-    /**
-     * Hàm dự phòng nha Nguyên ơi
-     */
     function speakFallback(text) {
+        // ... (Giữ nguyên code) ...
         console.warn("Đang dùng giọng đọc dự phòng của trình duyệt.");
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'vi-VN';

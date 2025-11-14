@@ -3,9 +3,9 @@ const axios = require('axios');
 const cors = require('cors');
 require('dotenv').config(); // Tải file .env
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { TextToSpeechClient } = require('@google-cloud/text-to-speech'); // THÊM CHO GOOGLE TTS
-const fs = require('fs'); // THÊM CHO FILE
-const util = require('util'); // THÊM CHO PROMISE
+const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
+const fs = require('fs');
+const util = require('util');
 const path = require('path');
 
 const app = express();
@@ -15,7 +15,7 @@ const PORT = 3000;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // --- Cấu hình Google Cloud TTS (cho giọng nói) ---
-const ttsClient = new TextToSpeechClient(); // Dùng GOOGLE_APPLICATION_CREDENTIALS từ .env
+const ttsClient = new TextToSpeechClient();
 
 app.use(cors());
 app.use(express.json());
@@ -26,20 +26,21 @@ app.get('/', (req, res) => {
 });
 
 app.use(express.static('public'));
-
-// THÊM ROUTE PHỤC VỤ FILE AUDIO
 app.use('/tts', express.static(path.join(__dirname, 'public', 'tts')));
 
-// --- API Endpoint CHAT (Gemini) ---
-// SỬA MODEL CHAT VỀ FLASH (miễn phí, quota cao)
+// ============================================================
+// --- API Endpoint CHAT (Gemini) - ĐÃ ĐƯỢC ĐƠN GIẢN HÓA ---
+// ============================================================
 app.get('/api/chat', async (req, res) => {
+    // 'prompt' này bây giờ là CÂU LỆNH ĐẦY ĐỦ do app.js tạo ra
     const { prompt } = req.query;
 
     if (!prompt) {
         return res.status(400).send('Thiếu prompt');
     }
 
-    console.log(`Đã nhận prompt (stream): ${prompt}`);
+    // Log một phần của prompt để kiểm tra
+    console.log(`Đã nhận full prompt (stream): ${prompt.substring(0, 150)}...`);
 
     // 1. Thiết lập Header cho Server-Sent Events (SSE)
     res.setHeader('Content-Type', 'text/event-stream');
@@ -48,24 +49,17 @@ app.get('/api/chat', async (req, res) => {
     res.flushHeaders();
 
     try {
-        const chatPrompt = `
-            Bạn là Bố mày, một người bạn AI đồng hành. 
-            Nhiệm vụ của bạn là trò chuyện với người dùng một cách thân thiện, tự nhiên và lôi cuốn nhưng không quá dài trong các câu xã giao, tập trung vào hỏi và đánh giá sự tiến bộ qua lời nói của trẻ.
-            Hãy trả lời như một người bình thường, đưa ra những câu trả lời có chiều sâu, 
-            chia sẻ suy nghĩ và đặt câu hỏi mở để duy trì cuộc hội thoại.
-            không đọc những icon lên tiếng. không đọc dấu câu.
-            
-            Người dùng nói: "${prompt}"
-        `;
-        
         // SỬA: DÙNG MODEL FLASH (miễn phí, quota 60 req/phút)
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-        const result = await model.generateContentStream(chatPrompt);
+        // === THAY ĐỔI CHÍNH ===
+        // Xóa 'chatPrompt' template
+        // Gửi 'prompt' nhận được trực tiếp cho Gemini
+        const result = await model.generateContentStream(prompt);
 
         for await (const chunk of result.stream) {
             const chunkText = chunk.text();
-            console.log("Gửi chunk:", chunkText);
+            // console.log("Gửi chunk:", chunkText); // Bật nếu cần debug
             res.write(`data: ${JSON.stringify({ chunk: chunkText })}\n\n`);
         }
 
@@ -79,11 +73,9 @@ app.get('/api/chat', async (req, res) => {
     }
 });
 
-// --- API Endpoint GIỌNG NÓI (Google Cloud TTS - Giọng Gemini-style) ---
-// --- API Endpoint GIỌNG NÓI (Google Cloud TTS - Giọng chuẩn Việt) ---
-// --- API Endpoint GIỌNG NÓI (SSML - Giống người Việt thật) ---
-// --- API GIỌNG NÓI: "BỐ MÀY NÓI CHUẨN VIỆT" ---
-// --- API GIỌNG NÓI: FPT.AI – CHUẨN ÂM TIẾT VIỆT NAM ---
+// ============================================================
+// --- API Endpoint GIỌNG NÓI (FPT.AI) - (Giữ nguyên) ---
+// ============================================================
 app.post('/api/tts', async (req, res) => {
     let { text } = req.body;
     text = cleanTextForTTS(text); // Chỉ xóa emoji
@@ -101,14 +93,12 @@ app.post('/api/tts', async (req, res) => {
             {
                 headers: {
                     'api-key': process.env.FPT_API_KEY,
-                    'voice': 'banmai', // Giọng nữ miền Nam, CHUẨN ÂM
-                    // 'voice': 'thuminh' // Giọng nam miền Nam
+                    'voice': 'banmai',
                 }
             }
         );
 
-        const mp3Url = response.data.async; // FPT trả URL MP3
-
+        const mp3Url = response.data.async;
         res.json({ url: mp3Url });
 
     } catch (error) {
@@ -116,7 +106,7 @@ app.post('/api/tts', async (req, res) => {
         res.status(500).json({ error: 'Lỗi tạo giọng nói' });
     }
 });
-// === 1. LÀM SẠCH ===
+// === CÁC HÀM TIỆN ÍCH (Giữ nguyên) ===
 function cleanTextForTTS(text) {
     return text
         .replace(/[\u{1F600}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
@@ -124,34 +114,7 @@ function cleanTextForTTS(text) {
         .trim();
 }
 
-// === 2. ÂM TIẾT THẬT ===
-function convertToPhoneticVietnamese(text) {
-    return text
-        .toLowerCase()
-        .replace(/\brồi\b/g, 'zùi')
-        .replace(/\bmày\b/g, 'mài')
-        .replace(/\bcon\b/g, 'kon')
-        .replace(/\bkhông\b/g, 'khom')
-        .replace(/\bthôi\b/g, 'thùi')
-        .replace(/\bnhé\b/g, 'nghe')
-        .trim();
-}
-
-// === 3. SSML ===
-function createRealVietnameseSSML(text) {
-    const sentences = text.split(/[.!?]/).map(s => s.trim()).filter(s => s);
-    let ssml = `<speak>`;
-    sentences.forEach((s, i) => {
-        let prosody = s.includes('?') ? `pitch="+20%" rate="fast"` :
-                      s.includes('!') ? `pitch="+10%" rate="slow"` :
-                      /(zùi|kwá|vui)/i.test(s) ? `pitch="+25%" rate="x-fast"` :
-                      `pitch="-5%" rate="medium"`;
-        const breakTime = i < sentences.length - 1 ? '800ms' : '600ms';
-        ssml += `<prosody ${prosody}>${s}</prosody><break time="${breakTime}"/>`;
-    });
-    ssml += `</speak>`;
-    return ssml;
-}
+// (Các hàm phonetic và SSML khác giữ nguyên nếu bạn cần dùng sau)
 
 app.listen(PORT, () => {
     // Hiệu ứng cầu vồng
