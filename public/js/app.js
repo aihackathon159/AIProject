@@ -6,10 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isStreaming = false;
     let recognition = null; // Biến giữ trình ghi âm
     let sessionId = null;   // <-- BIẾN MỚI: Giữ ID của kênh chat
-<<<<<<< HEAD
     //hehhe//
-=======
-
     // --- BIẾN MỚI CHO AI VOICE ---
     let isVoiceEnabled = true; // Bật/tắt giọng nói AI
     let aiVoice = null; // Đối tượng Text-to-Speech
